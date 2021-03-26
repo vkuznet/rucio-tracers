@@ -18,11 +18,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"os"
+	//"os"
 	"sync/atomic"
 	"time"
 
-	rotatelogs "github.com/lestrrat-go/file-rotatelogs"
+	//rotatelogs "github.com/lestrrat-go/file-rotatelogs"
 	// load-balanced stomp manager
 	lbstomp "github.com/vkuznet/lb-stomp"
 	// stomp library
@@ -81,9 +81,9 @@ type Lfnsite struct {
 var stompMgr *lbstomp.StompManager
 
 //rotation logger
-type rotateLogger struct {
-	RotateLogs *rotatelogs.RotateLogs
-}
+//type rotateLogger struct {
+//	RotateLogs *rotatelogs.RotateLogs
+//}
 
 //for debugging, counting the how many message received when 1k is processed
 var msgreceived uint64
@@ -418,6 +418,7 @@ func main() {
 
 	atomic.StoreUint64(&msgreceived, 0)
 	//set up roration logs
+	/*
 	logName := "RucioTrace" + "-%Y%m%d"
 	hostname, err := os.Hostname()
 	if err == nil {
@@ -428,6 +429,7 @@ func main() {
 		log.SetOutput(rlog)
 	}
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	*/
 	var config string
 	var fsitemap string
 	flag.StringVar(&config, "config", "", "config file name")
@@ -441,7 +443,7 @@ func main() {
 	if err2 != nil {
 		log.Fatalf("Unable to parse rucio sitemap file %s, error: %v", fsitemap, err2)
 	}
-	if Config.Verbose > 0 {
+	if Config.Verbose > 3 {
 		log.Printf("%v", Config)
 		log.Printf("%v", sitemap)
 	}
