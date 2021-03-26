@@ -6,16 +6,6 @@ metadata:
   labels:
     app: rucio-tracer
   namespace: rucio
-data:
-  run.sh: |
-    #!/bin/sh
-    cd /data
-    echo $PWD
-    ls
-    ls /etc/secrets
-    ls -l /data/RucioTracer
-    /data/RucioTracer -help
-    /data/RucioTracer -config /etc/secrets/stompserverconfig.json -sitemap /etc/secrets/ruciositemap.json
 ---
 kind: Deployment
 apiVersion: apps/v1
@@ -58,17 +48,12 @@ spec:
         - name: secrets
           mountPath: /etc/secrets
           readOnly: true
-        - name: setup-and-run
-          mountPath: /data/run
 #PROD#  - name: logs-cephfs
 #PROD#    mountPath: /data/logs
       volumes:
       - name: secrets
         secret:
           secretName: rucio-tracer-secrets
-      - name: setup-and-run
-        configMap:
-          name: rucio-tracer
 #PROD#- name: logs-cephfs
 #PROD#  persistentVolumeClaim:
 #PROD#      claimName: logs-cephfs-claim-rucio
