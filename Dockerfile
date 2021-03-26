@@ -13,22 +13,30 @@ FROM golang:latest as go-builder
 # build procedure
 ENV WDIR=/data
 WORKDIR $WDIR
-RUN mkdir -p /data/{stompserver,gopath, etc, run} && mkdir /build
+# RUN mkdir -p /data/{stompserver,gopath, etc, run} && mkdir /build
+RUN mkdir -p /data/stompserver
+RUN mkdir -p /data/gopath
+RUN mkdir /build
 ENV GOPATH=/data/gopath
 ARG CGO_ENABLED=0
 # get go libraries
-RUN go get github.com/lestrrat-go/file-rotatelogs
+# RUN go get github.com/lestrrat-go/file-rotatelogs
 RUN go get github.com/vkuznet/lb-stomp
 RUN go get github.com/go-stomp/stomp
 # build Rucio tracer
-WORKDIR $WDIR/etc 
-RUN curl -ksLO https://raw.githubusercontent.com/dmwm/RucioTracers/main/etc/ruciositemap.json
-WORKDIR $WDIR/run
-RUN curl -ksLO https://raw.githubusercontent.com/dmwm/RucioTracers/main/run.sh
+#WORKDIR $WDIR/etc 
+#RUN curl -ksLO https://raw.githubusercontent.com/dmwm/RucioTracers/main/etc/ruciositemap.json
+# WORKDIR $WDIR/run
+# RUN curl -ksLO https://raw.githubusercontent.com/dmwm/RucioTracers/main/run.sh
 WORKDIR $WDIR/stompserver
 RUN curl -ksLO https://raw.githubusercontent.com/dmwm/RucioTracers/main/stompserver/stompserver.go
 RUN go mod init github.com/dmwm/RucioTracers/stompserver && go mod tidy && \
     go build -o /build/RucioTracer -ldflags="-s -w -extldflags -static" /data/stompserver/stompserver.go
 FROM alpine
-RUN mkdir -p /data
+# RUN mkdir -p /data
 COPY --from=go-builder /build/RucioTracer /data/
+RUN mkdir -p /data/run
+# copy from the local dir where this Dockerfile is
+COPY run.sh /data/run/
+RUN mkdir -p /data/etc
+COPY etc/ruciositemap.json /data/etc/
