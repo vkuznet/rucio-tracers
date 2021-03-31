@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	//"os"
+	"net/http"
 	"sync/atomic"
 	"time"
 
@@ -31,9 +31,10 @@ import (
 
 // Configuration stores server configuration parameters
 type Configuration struct {
-	// HTTP server configuration options
+	// server configuration options
 	Interval int `json:"interval"` // interval of server
 	Verbose  int `json:"verbose"`  // verbose level
+	Port     int `json:"port"`     // http port number
 	// Stomp configuration options
 	StompURI         string `json:"stompURI"`         // StompAMQ URI for consumer and Producer
 	StompLogin       string `json:"stompLogin"`       // StompAQM login name
@@ -77,6 +78,15 @@ type Lfnsite struct {
 	lfn  []string
 }
 
+type Metrics struct {
+	Received     uint64 `json:"received"`
+	Send         uint64 `json:"send"`
+	Traces       uint64 `json:"traces"`
+	Receivedperk uint64 `json:"Receivedperk"`
+}
+
+var metrics Metrics
+
 // stompMgr
 var stompMgr *lbstomp.StompManager
 
@@ -86,7 +96,7 @@ var stompMgr *lbstomp.StompManager
 //}
 
 //for debugging, counting the how many message received when 1k is processed
-var msgreceived uint64
+//var msgreceived uint64
 
 //helper function to parse sitemap
 func parseSitemap(mapFile string) error {
@@ -124,10 +134,13 @@ func parseConfig(configFile string) error {
 		Config.ContentType = "application/json"
 	}
 	if Config.StompSendTimeout == 0 {
-		Config.StompSendTimeout = 1000 // miliseconds
+		Config.StompSendTimeout = 5000 // miliseconds
 	}
 	if Config.StompRecvTimeout == 0 {
-		Config.StompRecvTimeout = 1000 // miliseconds
+		Config.StompRecvTimeout = 5000 // miliseconds
+	}
+	if Config.Port == 0 {
+		Config.Port = 8888 // default HTTP port
 	}
 	//log.Printf("%v", Config)
 	return nil
@@ -150,6 +163,30 @@ func initStomp() {
 	log.Println(stompMgr.String())
 }
 
+// Define FWJR Record
+type MetaData struct {
+	Ts      int64  `json:"ts"`
+	JobType string `json:"jobtype"`
+	WnName  string `json:"wn_name"`
+}
+
+type InputLst struct {
+	Lfn    int    `json:"lfn"`
+	Events int64  `json:"events"`
+	GUID   string `json:"guid"`
+}
+type Step struct {
+	Input []InputLst `json:"input"`
+	Site  string     `json:"site"`
+}
+type FWJRRecord struct {
+	LFNArray      []string
+	LFNArrayRef   []string
+	FallbackFiles []int    `json:"fallbackFiles"`
+	Metadata      MetaData `json:"meta_data"`
+	Steps         []Step   `json:"steps"`
+}
+
 // FWJRconsumer Consumes for FWJR/WMArchive topic
 func FWJRconsumer(msg *stomp.Message) ([]Lfnsite, int64, string, string, error) {
 	//first to check to make sure there is something in msg,
@@ -159,7 +196,8 @@ func FWJRconsumer(msg *stomp.Message) ([]Lfnsite, int64, string, string, error) 
 	//
 	var lfnsite []Lfnsite
 	var ls Lfnsite
-	atomic.AddUint64(&msgreceived, 1)
+	atomic.AddUint64(&metrics.Received, 1)
+	atomic.AddUint64(&metrics.Receivedperk, 1)
 	if msg == nil || msg.Body == nil {
 		return lfnsite, 0, "", "", errors.New("Empty message")
 	}
@@ -169,29 +207,7 @@ func FWJRconsumer(msg *stomp.Message) ([]Lfnsite, int64, string, string, error) 
 		log.Println("Source AMQ message of wmarchive: ", string(msg.Body))
 		log.Println("*******************End AMQ message of wmarchive**********************")
 	}
-	// Define FWJR Recod
-	type MetaData struct {
-		Ts      int64  `json:"ts"`
-		JobType string `json:"jobtype"`
-		WnName  string `json:"wn_name"`
-	}
 
-	type InputLst struct {
-		Lfn    int    `json:"lfn"`
-		Events int64  `json:"events"`
-		GUID   string `json:"guid"`
-	}
-	type Step struct {
-		Input []InputLst `json:"input"`
-		Site  string     `json:"site"`
-	}
-	type FWJRRecord struct {
-		LFNArray      []string
-		LFNArrayRef   []string
-		FallbackFiles []int    `json:"fallbackFiles"`
-		Metadata      MetaData `json:"meta_data"`
-		Steps         []Step   `json:"steps"`
-	}
 	var rec FWJRRecord
 	err := json.Unmarshal(msg.Body, &rec)
 	if err != nil {
@@ -308,6 +324,8 @@ func FWJRtrace(msg *stomp.Message) ([]string, error) {
 					if err != nil {
 						dids = append(dids, fmt.Sprintf("%v", trc.DID))
 						log.Printf("Failed to send %s to stomp.", trc.DID)
+					} else {
+						atomic.AddUint64(&metrics.Send, 1)
 					}
 				} else {
 					log.Fatal("*** Config.Enpoint is empty, check config file! ***")
@@ -318,65 +336,77 @@ func FWJRtrace(msg *stomp.Message) ([]string, error) {
 	return dids, nil
 }
 
-func server() {
-	log.Println("Stomp broker URL: ", Config.StompURI)
+// helper function to subscribe to StompAMQ end-point
+func subscribe(endpoint string) (*stomp.Subscription, error) {
 	var err error
 	var addr string
 	var conn *stomp.Conn
+	var sub *stomp.Subscription
 
 	// get connection
 	conn, addr, err = stompMgr.GetConnection()
-	if err != nil {
-		//try again
-		conn, addr, err = stompMgr.GetConnection()
-	}
-	// always close connection
-	//defer conn.Disconnect()
-
-	// subscribe to ActiveMQ topic
-	sub, err2 := conn.Subscribe(Config.EndpointConsumer, stomp.AckAuto)
-	if err2 != nil {
-		sub, err = conn.Subscribe(Config.EndpointConsumer, stomp.AckAuto)
-	}
-	if err != nil {
-		log.Fatal(err)
+	if err == nil {
+		if conn != nil {
+			// subscribe to ActiveMQ topic
+			sub, err = conn.Subscribe(endpoint, stomp.AckAuto)
+			if err == nil {
+				log.Println("stomp connected to", addr)
+			} else {
+				log.Println("unable to subscribe to", endpoint, err)
+			}
+		} else {
+			log.Println("no connection to StompAMQ", addr)
+		}
 	} else {
-		log.Println("stomp connected to", addr)
+		log.Println("unable to connect to", addr, err)
 	}
+	return sub, err
+}
 
+func server() {
+	log.Println("Stomp broker URL: ", Config.StompURI)
+	// get connection
+	sub, err := subscribe(Config.EndpointConsumer)
 	var tc uint64
 	t1 := time.Now().Unix()
 	var t2 int64
-	var ok bool
-	var msg *stomp.Message
+
 	for {
+		if sub == nil {
+			time.Sleep(time.Duration(Config.Interval) * time.Second)
+			sub, err = subscribe(Config.EndpointConsumer)
+		}
+		if sub == nil {
+			continue // back to the begining of the for loop to sleep and re subscribe
+		}
 		// get stomp messages from subscriber channel
 		select {
-		case msg, ok = <-sub.C:
-			if !ok {
-				conn, addr, err = stompMgr.GetConnection()
-				sub, _ = conn.Subscribe(Config.EndpointConsumer, stomp.AckAuto)
-				msg, ok = <-sub.C
-			}
-			if !ok { //still not get the message, skip this case
+		case msg := <-sub.C:
+			if msg.Err != nil {
+				log.Println("receive error message", err)
+				sub, err = subscribe(Config.EndpointConsumer)
+				if err != nil {
+					log.Println("unable to subscribe to", Config.EndpointConsumer, err)
+				}
 				break
 			}
 			// process stomp messages
 			dids, err := FWJRtrace(msg)
 			if err == nil {
+				atomic.AddUint64(&metrics.Traces, 1)
 				atomic.AddUint64(&tc, 1)
 				if Config.Verbose > 1 {
 					log.Println("The number of traces processed in 1000 group: ", atomic.LoadUint64(&tc))
 				}
 			}
-			//log.Println("processed:", tc)
+
 			if atomic.LoadUint64(&tc) == 1000 {
 				atomic.StoreUint64(&tc, 0)
 				t2 = time.Now().Unix() - t1
 				t1 = time.Now().Unix()
-				log.Printf("Processing 1000 messages while total received %d messages.\n", atomic.LoadUint64(&msgreceived))
+				log.Printf("Processing 1000 messages while total received %d messages.\n", atomic.LoadUint64(&metrics.Receivedperk))
 				log.Printf("Processing 1000 messages took %d seconds.\n", t2)
-				atomic.StoreUint64(&msgreceived, 0)
+				atomic.StoreUint64(&metrics.Receivedperk, 0)
 			}
 			if err != nil && err.Error() != "Empty message" {
 				log.Println("FWJR message processing error", err)
@@ -413,22 +443,38 @@ func insliceint(s []int, v int) bool {
 	return false
 }
 
+// RequestHander for http server
+func RequestHandler(w http.ResponseWriter, r *http.Request) {
+	data, err := json.Marshal(metrics)
+	if err == nil {
+		w.Write(data)
+		return
+	}
+	w.WriteHeader(http.StatusInternalServerError)
+}
+
+// complementary http server to serve the metrics
+func httpServer(addr string) {
+	http.HandleFunc("/metrics", RequestHandler)
+	log.Fatal(http.ListenAndServe(addr, nil))
+}
+
 func main() {
 	// usage: ./stompserver -config stompserverconfig.json -sitemap ruciositemap.json
 
-	atomic.StoreUint64(&msgreceived, 0)
+	atomic.StoreUint64(&metrics.Receivedperk, 0)
 	//set up roration logs
 	/*
-	logName := "RucioTrace" + "-%Y%m%d"
-	hostname, err := os.Hostname()
-	if err == nil {
-		logName = "RucioTrace" + "-" + hostname + "-%Y%m%d"
-	}
-	rlog, err := rotatelogs.New(logName)
-	if err == nil {
-		log.SetOutput(rlog)
-	}
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
+		logName := "RucioTrace" + "-%Y%m%d"
+		hostname, err := os.Hostname()
+		if err == nil {
+			logName = "RucioTrace" + "-" + hostname + "-%Y%m%d"
+		}
+		rlog, err := rotatelogs.New(logName)
+		if err == nil {
+			log.SetOutput(rlog)
+		}
+		log.SetFlags(log.LstdFlags | log.Lshortfile)
 	*/
 	var config string
 	var fsitemap string
@@ -448,5 +494,8 @@ func main() {
 		log.Printf("%v", sitemap)
 	}
 	initStomp()
+	// start HTTP server which can be used for metrics
+	go httpServer(fmt.Sprintf(":%d", Config.Port))
+	// start AMQ server to handle rucio traces
 	server()
 }
