@@ -155,22 +155,27 @@ func initStomp() {
 	log.Println(stompMgr.String())
 }
 
-// Define FWJR Record
+// MetaData defines FWJR Record
 type MetaData struct {
 	Ts      int64  `json:"ts"`
 	JobType string `json:"jobtype"`
 	WnName  string `json:"wn_name"`
 }
 
+// InputLst defines input structure
 type InputLst struct {
 	Lfn    int    `json:"lfn"`
 	Events int64  `json:"events"`
 	GUID   string `json:"guid"`
 }
+
+// Step defines step structure
 type Step struct {
 	Input []InputLst `json:"input"`
 	Site  string     `json:"site"`
 }
+
+// FWJRRecord defines fwjr record structure
 type FWJRRecord struct {
 	LFNArray      []string
 	LFNArrayRef   []string
@@ -258,21 +263,21 @@ func FWJRconsumer(msg *stomp.Message) ([]Lfnsite, int64, string, string, error) 
 
 // NewTrace create new instance of Trace
 func NewTrace(lfn string, site string, ts int64, jobtype string, wnname string) Trace {
-	trc := Trace{}
-	trc.Account = "fwjr"
-	trc.ClientState = "DONE"
-	trc.Filename = lfn
-	trc.DID = "cms:" + fmt.Sprintf("%v", trc.Filename)
-	trc.EventType = "get"
-	trc.EventVersion = "API_1.21.6"
-	trc.FileReadts = ts
-	trc.Jobtype = jobtype
-	trc.RemoteSite = site
-	trc.Scope = "cms"
-	trc.Timestamp = trc.FileReadts
-	trc.TraceTimeentryUnix = trc.FileReadts
-	trc.Usrdn = "/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=yuyi/CN=639751/CN=Yuyi Guo/CN=706639693"
-	trc.Wnname = wnname
+	trc := Trace{
+		Account:            "fwjr",
+		ClientState:        "DONE",
+		Filename:           lfn,
+		DID:                fmt.Sprintf("cms: %s", trc.Filename),
+		EventType:          "get",
+		EventVersion:       "API_1.21.6",
+		FileReadts:         ts,
+		RemoteSite:         site,
+		Scope:              "cms",
+		Timestamp:          trc.FileReadts,
+		TraceTimeentryUnix: trc.FileReadts,
+		Usrdn:              "/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=yuyi/CN=639751/CN=Yuyi Guo/CN=706639693",
+		Wnname:             wnname,
+	}
 	return trc
 }
 
