@@ -311,7 +311,7 @@ func FWJRtrace(msg *stomp.Message) ([]string, error) {
 				}
 				// send data to Stomp endpoint
 				if Config.EndpointProducer != "" {
-					err := stompMgr.Send(data, stomp.SendOpt.Header("appversion", "rucio"))
+					err := stompMgr.Send(data, stomp.SendOpt.Header("appversion", "fwjrAMQ"))
 					//totaltrace++
 					if err != nil {
 						dids = append(dids, fmt.Sprintf("%v", trc.DID))

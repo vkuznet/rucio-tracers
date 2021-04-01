@@ -20,8 +20,8 @@ ENV GOPATH=/data/gopath
 ARG CGO_ENABLED=0
 # get go libraries
 # RUN go get github.com/lestrrat-go/file-rotatelogs
-RUN go get github.com/vkuznet/lb-stomp
-RUN go get github.com/go-stomp/stomp
+#RUN go get github.com/vkuznet/lb-stomp
+#RUN go get github.com/go-stomp/stomp
 #RUN go get github.com/dmwm/RucioTracers
 # build Rucio tracer
 WORKDIR ${WDIR} 
