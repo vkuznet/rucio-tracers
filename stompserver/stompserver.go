@@ -337,7 +337,7 @@ func subscribe(endpoint string) (*stomp.Subscription, error) {
 		Iterations:  Config.StompIterations,
 		SendTimeout: Config.StompSendTimeout,
 		RecvTimeout: Config.StompRecvTimeout,
-		Endpoint:    Config.EndpointProducer,
+		Endpoint:    Config.EndpointConsumer,
 		ContentType: Config.ContentType,
 		Protocol:    Config.Protocol,
 		Verbose:     Config.Verbose,
