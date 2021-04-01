@@ -8,7 +8,7 @@ package main
 // Process them, then produce a Ruci trace message and then it to topic:
 // /topic/cms.rucio.tracer
 //
-// Author: Yuyi Guo
+// Authors: Yuyi Guo and Valentin Kuznetsov
 // Created: Feb 2021
 
 import (
