@@ -1,4 +1,5 @@
 {
+                "T0_CH_CERN":         "T2_CH_CERN",
                 "T1_US_FNAL":         "T1_US_FNAL_Disk",
                 "T1_DE_KIT":          "T1_DE_KIT_Disk",
                 "T1_ES_PIC":          "T1_ES_PIC_Disk",
@@ -8,6 +9,7 @@
                 "T1_IT_CNAF":         "T1_IT_CNAF_Disk",
                 "T2_CH_CERN_HLT":     "T2_CH_CERN",
                 "T2_CH_CERNBOX":      "T2_CH_CERN",
-                "T3_UK_SGrid_Oxford": "T2_UK_London_IC"
+                "T3_UK_SGrid_Oxford": "T2_UK_London_IC",
+                "T3_US_HEP_Cloud":    "T1_US_FNAL_Disk"
         }
 
