@@ -13,9 +13,6 @@ FROM golang:latest as go-builder
 # build procedure
 ENV WDIR=/data
 WORKDIR ${WDIR}
-# RUN mkdir -p /data/{stompserver,gopath, etc, run} && mkdir /build
-RUN mkdir -p /data/gopath
-RUN mkdir /build
 ENV GOPATH=/data/gopath
 ARG CGO_ENABLED=0
 # get go libraries
@@ -34,8 +31,8 @@ RUN make
 FROM alpine
 # when COPY, need full path, ${WDIR}/RucioTracers/stompserver/RucioTracer will nor wor, WHY?
 COPY --from=go-builder /data/RucioTracers/stompserver/RucioTracer /data/
-RUN mkdir -p /data/run
+RUN mkdir -p /data/{run, etc}
 #
 COPY --from=go-builder /data/RucioTracers/run.sh /data/run/
-RUN mkdir -p /data/etc
+# RUN mkdir -p /data/etc
 COPY --from=go-builder /data/RucioTracers/etc/ruciositemap.json /data/etc/

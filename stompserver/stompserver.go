@@ -29,55 +29,81 @@ import (
 	"github.com/go-stomp/stomp"
 )
 
-// Configuration stores server configuration parameters
+// Configuration stores server configuration parameters and  options
 type Configuration struct {
-	// server configuration options
-	Interval int `json:"interval"` // interval of server
-	Verbose  int `json:"verbose"`  // verbose level
-	Port     int `json:"port"`     // http port number
-	// Stomp configuration options
-	StompURI         string `json:"stompURI"`         // StompAMQ URI for consumer and Producer
-	StompLogin       string `json:"stompLogin"`       // StompAQM login name
-	StompPassword    string `json:"stompPassword"`    // StompAQM password
-	StompIterations  int    `json:"stompIterations"`  // Stomp iterations
-	StompSendTimeout int    `json:"stompSendTimeout"` // heartbeat send timeout
-	StompRecvTimeout int    `json:"stompRecvTimeout"` // heartbeat recv timeout
-	EndpointConsumer string `json:"endpointConsumer"` // StompAMQ endpoint Consumer
-	EndpointProducer string `json:"endpointProducer"` // StompAMQ endpoint Producer
-	ContentType      string `json:"contentType"`      // ContentType of UDP packet
-	Protocol         string `json:"Protocol"`         // network protocol tcp4
+	// Interval of server
+	Interval int `json:"interval"`
+	// Verbose level for ddebugging
+	Verbose int `json:"verbose"`
+	// Port  defines http server port number for monitoring metrics.
+	Port int `json:"port"`
+	// StompURL defines StompAMQ URI for consumer and Producer.
+	StompURI string `json:"stompURI"`
+	// StompLogin defines StompAQM login name.
+	StompLogin string `json:"stompLogin"`
+	// StompPassword defines StompAQM password.
+	StompPassword string `json:"stompPassword"`
+	// StompIterations  defines Stomp iterations.
+	StompIterations int `json:"stompIterations"`
+	// StompSendTimeout defines heartbeat send timeout.
+	StompSendTimeout int `json:"stompSendTimeout"`
+	// StompRecvTimeout defines heartbeat recv timeout.
+	StompRecvTimeout int `json:"stompRecvTimeout"`
+	// EndpointConsumer defines StompAMQ endpoint Consumer.
+	EndpointConsumer string `json:"endpointConsumer"`
+	// EndpointProducer defines StompAMQ endpoint Producer.
+	EndpointProducer string `json:"endpointProducer"`
+	// ContentType of UDP packet
+	ContentType string `json:"contentType"`
+	// Protocol network protocol tcp4
+	Protocol string `json:"Protocol"`
 }
 
 //Trace defines Rucio trace
 type Trace struct {
-	EventVersion       string `json:"eventVersion"`
-	ClientState        string `json:"clientState"`
-	Scope              string `json:"scope"`
-	EventType          string `json:"eventType"`
-	Usrdn              string `json:"usrdn"`
-	Account            string `json:"account"`
-	Filename           string `json:"filename"`
-	RemoteSite         string `json:"remoteSite"`
-	DID                string `json:"DID"`
-	FileReadts         int64  `json:"file_read_ts"`
-	Jobtype            string `json:"jobtype"`
-	Wnname             string `json:"wn_name"`
-	Timestamp          int64  `json:"timestamp"`
-	TraceTimeentryUnix int64  `json:"traceTimeentryUnix"`
+	// EventVersion  default value API_1.21.6
+	EventVersion string `json:"eventVersion"`
+	// ClientState default value done
+	ClientState string `json:"clientState"`
+	// Scope  default value cms
+	Scope string `json:"scope"`
+	// EventType  default value get
+	EventType string `json:"eventType"`
+	// Usrdn default value /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=fwjr/CN=1/CN=fwjr/CN=0
+	Usrdn string `json:"usrdn"`
+	// Account default fwjr, other options are crab, cmspop, xrootd and so on.
+	Account string `json:"account"`
+	// Filename defines cms LFN.
+	Filename string `json:"filename"`
+	// RemoteSite defines where the file was read from.
+	RemoteSite string `json:"remoteSite"`
+	// DID is defined as cms:lfn
+	DID string `json:"DID"`
+	// FileReadts defines when the file is read.
+	FileReadts int64 `json:"file_read_ts"`
+	// Jobtype defines the type of job.
+	Jobtype string `json:"jobtype"`
+	// Wnname defines the name of worknode.
+	Wnname string `json:"wn_name"`
+	// Timestamp defines the file read timestamp, same as FileReadts.
+	Timestamp int64 `json:"timestamp"`
+	// TraceTimeentryUnix defines when the trace was enteried, same as FileReadts.
+	TraceTimeentryUnix int64 `json:"traceTimeentryUnix"`
 }
 
-// Site names from the message may not be what the name Ruci server has. This map matches them
+// sitemap  defines maps between the names from the data message and the name Ruci server has.
 var sitemap map[string]string
 
 // Config variable represents configuration object
 var Config Configuration
 
-// Lfnsite for map of lfn and site
+// Lfnsite for the map of lfn and site
 type Lfnsite struct {
 	site string
 	lfn  []string
 }
 
+// Metrics defines the metrics will be monitored using the HTTP server.
 type Metrics struct {
 	Received     uint64 `json:"received"`
 	Send         uint64 `json:"send"`
@@ -87,10 +113,10 @@ type Metrics struct {
 
 var metrics Metrics
 
-// stompMgr
+// stompMgr defines the stomp manager for the producer.
 var stompMgr *lbstomp.StompManager
 
-//helper function to parse sitemap
+// parseSitemap is a helper function to parse sitemap.
 func parseSitemap(mapFile string) error {
 	data, err := ioutil.ReadFile(mapFile)
 	if err != nil {
@@ -106,7 +132,7 @@ func parseSitemap(mapFile string) error {
 	return nil
 }
 
-// helper function to parse configuration
+// parseConfig is a helper function to parse configuration.
 func parseConfig(configFile string) error {
 	data, err := ioutil.ReadFile(configFile)
 	if err != nil {
@@ -138,7 +164,8 @@ func parseConfig(configFile string) error {
 	return nil
 }
 
-func initStomp() {
+// initStomp is a function to initialize a stomp object.
+func initStomp(endpoint string) *lbstomp.StompManager {
 	p := lbstomp.Config{
 		URI:         Config.StompURI,
 		Login:       Config.StompLogin,
@@ -146,36 +173,38 @@ func initStomp() {
 		Iterations:  Config.StompIterations,
 		SendTimeout: Config.StompSendTimeout,
 		RecvTimeout: Config.StompRecvTimeout,
-		Endpoint:    Config.EndpointProducer,
+		//Endpoint:    Config.EndpointProducer,
+		Endpoint:    endpoint,
 		ContentType: Config.ContentType,
 		Protocol:    Config.Protocol,
 		Verbose:     Config.Verbose,
 	}
-	stompMgr = lbstomp.New(p)
-	log.Println(stompMgr.String())
+	stompManger := lbstomp.New(p)
+	log.Println(stompManger.String())
+	return stompManger
 }
 
-// MetaData defines FWJR Record
+// MetaData defines the metadata of FWJR record.
 type MetaData struct {
 	Ts      int64  `json:"ts"`
 	JobType string `json:"jobtype"`
 	WnName  string `json:"wn_name"`
 }
 
-// InputLst defines input structure
+// InputLst defines input structure of FWJR record.
 type InputLst struct {
 	Lfn    int    `json:"lfn"`
 	Events int64  `json:"events"`
 	GUID   string `json:"guid"`
 }
 
-// Step defines step structure
+// Step defines step structure of FWJR record.
 type Step struct {
 	Input []InputLst `json:"input"`
 	Site  string     `json:"site"`
 }
 
-// FWJRRecord defines fwjr record structure
+// FWJRRecord defines fwjr record structure.
 type FWJRRecord struct {
 	LFNArray      []string
 	LFNArrayRef   []string
@@ -261,27 +290,27 @@ func FWJRconsumer(msg *stomp.Message) ([]Lfnsite, int64, string, string, error) 
 	return lfnsite, ts, jobtype, wnname, nil
 }
 
-// NewTrace create new instance of Trace
+// NewTrace creates a new instance of Rucio Trace.
 func NewTrace(lfn string, site string, ts int64, jobtype string, wnname string) Trace {
 	trc := Trace{
 		Account:            "fwjr",
 		ClientState:        "DONE",
 		Filename:           lfn,
-		DID:                fmt.Sprintf("cms: %s", trc.Filename),
+		DID:                fmt.Sprintf("cms: %s", lfn),
 		EventType:          "get",
 		EventVersion:       "API_1.21.6",
 		FileReadts:         ts,
 		RemoteSite:         site,
 		Scope:              "cms",
-		Timestamp:          trc.FileReadts,
-		TraceTimeentryUnix: trc.FileReadts,
-		Usrdn:              "/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=yuyi/CN=639751/CN=Yuyi Guo/CN=706639693",
+		Timestamp:          ts,
+		TraceTimeentryUnix: ts,
+		Usrdn:              "/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=fwjr/CN=0/CN=fwjr/CN=0",
 		Wnname:             wnname,
 	}
 	return trc
 }
 
-//FWJRtrace makes FWJR trace and send it to rucio endpoint
+// FWJRtrace makes FWJR trace and send it to rucio endpoint
 func FWJRtrace(msg *stomp.Message) ([]string, error) {
 	var dids []string
 	//get trace data
@@ -333,22 +362,9 @@ func FWJRtrace(msg *stomp.Message) ([]string, error) {
 	return dids, nil
 }
 
-// helper function to subscribe to StompAMQ end-point
+// subscribe is a helper function to subscribe to StompAMQ end-point as a listener.
 func subscribe(endpoint string) (*stomp.Subscription, error) {
-	p := lbstomp.Config{
-		URI:         Config.StompURI,
-		Login:       Config.StompLogin,
-		Password:    Config.StompPassword,
-		Iterations:  Config.StompIterations,
-		SendTimeout: Config.StompSendTimeout,
-		RecvTimeout: Config.StompRecvTimeout,
-		Endpoint:    Config.EndpointConsumer,
-		ContentType: Config.ContentType,
-		Protocol:    Config.Protocol,
-		Verbose:     Config.Verbose,
-	}
-	smgr := lbstomp.New(p)
-	log.Println(smgr.String())
+	smgr := initStomp(endpoint)
 	// get connection
 	conn, addr, err := smgr.GetConnection()
 	if err != nil {
@@ -365,6 +381,7 @@ func subscribe(endpoint string) (*stomp.Subscription, error) {
 	return sub, err
 }
 
+// server gets messages from consumer AMQ end pointer, make tracers and send to AMQ producer end point.
 func server() {
 	log.Println("Stomp broker URL: ", Config.StompURI)
 	// get connection
@@ -461,14 +478,14 @@ func RequestHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusInternalServerError)
 }
 
-// complementary http server to serve the metrics
+// httpServer complementary http server to serve the metrics
 func httpServer(addr string) {
 	http.HandleFunc("/metrics", RequestHandler)
 	log.Fatal(http.ListenAndServe(addr, nil))
 }
 
 func main() {
-	// usage: ./stompserver -config stompserverconfig.json -sitemap ruciositemap.json
+	// usage: ./RucioTracer -config stompserverconfig.json -sitemap ../etc/ruciositemap.json
 
 	atomic.StoreUint64(&metrics.Receivedperk, 0)
 
@@ -491,7 +508,7 @@ func main() {
 		log.Printf("%v", Config)
 		log.Printf("%v", sitemap)
 	}
-	initStomp()
+	stompMgr = initStomp(Config.EndpointProducer)
 	// start HTTP server which can be used for metrics
 	go httpServer(fmt.Sprintf(":%d", Config.Port))
 	// start AMQ server to handle rucio traces
