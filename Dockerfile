@@ -15,24 +15,14 @@ ENV WDIR=/data
 WORKDIR ${WDIR}
 ENV GOPATH=/data/gopath
 ARG CGO_ENABLED=0
-# get go libraries
-# RUN go get github.com/lestrrat-go/file-rotatelogs
-#RUN go get github.com/vkuznet/lb-stomp
-#RUN go get github.com/go-stomp/stomp
-#RUN go get github.com/dmwm/RucioTracers
 # build Rucio tracer
 WORKDIR ${WDIR} 
 RUN git clone https://github.com/dmwm/RucioTracers.git
 WORKDIR ${WDIR}/RucioTracers/stompserver
 RUN make
-#RUN curl -ksLO https://raw.githubusercontent.com/dmwm/RucioTracers/main/stompserver/stompserver.go
-#RUN go mod init github.com/dmwm/RucioTracers/stompserver && go mod tidy && \
-    #go build -o /build/RucioTracer -ldflags="-s -w -extldflags -static" /data/stompserver/stompserver.go
 FROM alpine
 # when COPY, need full path, ${WDIR}/RucioTracers/stompserver/RucioTracer will nor wor, WHY?
 COPY --from=go-builder /data/RucioTracers/stompserver/RucioTracer /data/
-RUN mkdir -p /data/{run, etc}
-#
+RUN mkdir -p /data/run && mkdir -p /data/etc
 COPY --from=go-builder /data/RucioTracers/run.sh /data/run/
-# RUN mkdir -p /data/etc
 COPY --from=go-builder /data/RucioTracers/etc/ruciositemap.json /data/etc/
