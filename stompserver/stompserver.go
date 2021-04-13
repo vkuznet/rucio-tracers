@@ -123,15 +123,8 @@ var (
 	})
 )
 
-// Metrics defines the metrics will be monitored using the HTTP server.
-type Metrics struct {
-	Received     uint64 `json:"received"`
-	Send         uint64 `json:"send"`
-	Traces       uint64 `json:"traces"`
-	Receivedperk uint64 `json:"Receivedperk"`
-}
-
-var metrics Metrics
+// Receivedperk keeps number of messages per 1k
+var Receivedperk uint64
 
 // stompMgr defines the stomp manager for the producer.
 var stompMgr *lbstomp.StompManager
@@ -242,9 +235,8 @@ func FWJRconsumer(msg *stomp.Message) ([]Lfnsite, int64, string, string, error) 
 	//
 	var lfnsite []Lfnsite
 	var ls Lfnsite
-	atomic.AddUint64(&metrics.Received, 1)
 	Received.Inc()
-	atomic.AddUint64(&metrics.Receivedperk, 1)
+	atomic.AddUint64(&Receivedperk, 1)
 	if msg == nil || msg.Body == nil {
 		return lfnsite, 0, "", "", errors.New("Empty message")
 	}
@@ -372,7 +364,6 @@ func FWJRtrace(msg *stomp.Message) ([]string, error) {
 						dids = append(dids, fmt.Sprintf("%v", trc.DID))
 						log.Printf("Failed to send %s to stomp.", trc.DID)
 					} else {
-						atomic.AddUint64(&metrics.Send, 1)
 						Send.Inc()
 					}
 				} else {
@@ -440,7 +431,6 @@ func server() {
 			// process stomp messages
 			dids, err := FWJRtrace(msg)
 			if err == nil {
-				atomic.AddUint64(&metrics.Traces, 1)
 				Traces.Inc()
 				atomic.AddUint64(&tc, 1)
 				if Config.Verbose > 1 {
@@ -452,9 +442,9 @@ func server() {
 				atomic.StoreUint64(&tc, 0)
 				t2 = time.Now().Unix() - t1
 				t1 = time.Now().Unix()
-				log.Printf("Processing 1000 messages while total received %d messages.\n", atomic.LoadUint64(&metrics.Receivedperk))
+				log.Printf("Processing 1000 messages while total received %d messages.\n", atomic.LoadUint64(&Receivedperk))
 				log.Printf("Processing 1000 messages took %d seconds.\n", t2)
-				atomic.StoreUint64(&metrics.Receivedperk, 0)
+				atomic.StoreUint64(&Receivedperk, 0)
 			}
 			if err != nil && err.Error() != "Empty message" {
 				log.Println("FWJR message processing error", err)
@@ -499,8 +489,6 @@ func httpServer(addr string) {
 
 func main() {
 	// usage: ./RucioTracer -config stompserverconfig.json -sitemap ../etc/ruciositemap.json
-
-	atomic.StoreUint64(&metrics.Receivedperk, 0)
 
 	// use this line to print in logs the filename:lineNumber for each log entry
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
