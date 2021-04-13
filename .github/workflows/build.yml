@@ -63,7 +63,7 @@ jobs:
 
     - name: Build image
       run: |
-        docker build . --tag docker.pkg.github.com/dmwm/RucioTracers
+        docker build . --tag docker.pkg.github.com/vkuznet/ruciotracers
 
     - name: Login to docker github registry
       uses: docker/login-action@v1.6.0
@@ -78,7 +78,7 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
         registry: docker.pkg.github.com
-        repository: dmwm/RucioTracers/RucioTracers
+        repository: vkuznet/RucioTracers/RucioTracers
         tag_with_ref: true
 
 #     - name: Login to DockerHub
