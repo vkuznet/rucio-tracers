@@ -27,6 +27,10 @@ import (
 	lbstomp "github.com/vkuznet/lb-stomp"
 	// stomp library
 	"github.com/go-stomp/stomp"
+	// prometheus apis
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // Configuration stores server configuration parameters and  options
@@ -102,6 +106,22 @@ type Lfnsite struct {
 	site string
 	lfn  []string
 }
+
+// prometheus metrics
+var (
+	Received = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "rucio_tracer_received",
+		Help: "The number of received messages",
+	})
+	Send = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "rucio_tracer_send",
+		Help: "The number of send messages",
+	})
+	Traces = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "rucio_tracer_traces",
+		Help: "The number of traces messages",
+	})
+)
 
 // Metrics defines the metrics will be monitored using the HTTP server.
 type Metrics struct {
@@ -223,6 +243,7 @@ func FWJRconsumer(msg *stomp.Message) ([]Lfnsite, int64, string, string, error) 
 	var lfnsite []Lfnsite
 	var ls Lfnsite
 	atomic.AddUint64(&metrics.Received, 1)
+	Received.Inc()
 	atomic.AddUint64(&metrics.Receivedperk, 1)
 	if msg == nil || msg.Body == nil {
 		return lfnsite, 0, "", "", errors.New("Empty message")
@@ -352,6 +373,7 @@ func FWJRtrace(msg *stomp.Message) ([]string, error) {
 						log.Printf("Failed to send %s to stomp.", trc.DID)
 					} else {
 						atomic.AddUint64(&metrics.Send, 1)
+						Send.Inc()
 					}
 				} else {
 					log.Fatal("*** Config.Enpoint is empty, check config file! ***")
@@ -419,6 +441,7 @@ func server() {
 			dids, err := FWJRtrace(msg)
 			if err == nil {
 				atomic.AddUint64(&metrics.Traces, 1)
+				Traces.Inc()
 				atomic.AddUint64(&tc, 1)
 				if Config.Verbose > 1 {
 					log.Println("The number of traces processed in 1000 group: ", atomic.LoadUint64(&tc))
@@ -468,39 +491,9 @@ func insliceint(s []int, v int) bool {
 	return false
 }
 
-// RequestHander for http server
-func RequestHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Header.Get("Content-Type") == "application/json" {
-		data, err := json.Marshal(metrics)
-		if err == nil {
-			w.Write(data)
-			return
-		}
-		w.WriteHeader(http.StatusInternalServerError)
-	}
-	var out string
-	prefix := "rucio_tracer"
-
-	// received messages
-	out += fmt.Sprintf("# HELP %s_received messages\n", prefix)
-	out += fmt.Sprintf("# TYPE %s_received counter\n", prefix)
-	out += fmt.Sprintf("%s_received %v\n", prefix, metrics.Received)
-
-	// send messages
-	out += fmt.Sprintf("# HELP %s_send messages\n", prefix)
-	out += fmt.Sprintf("# TYPE %s_send counter\n", prefix)
-	out += fmt.Sprintf("%s_send %v\n", prefix, metrics.Send)
-
-	// traces messages
-	out += fmt.Sprintf("# HELP %s_traces messages\n", prefix)
-	out += fmt.Sprintf("# TYPE %s_traces counter\n", prefix)
-	out += fmt.Sprintf("%s_traces %v\n", prefix, metrics.Traces)
-	w.Write([]byte(out))
-}
-
 // httpServer complementary http server to serve the metrics
 func httpServer(addr string) {
-	http.HandleFunc("/metrics", RequestHandler)
+	http.Handle("/metrics", promhttp.Handler())
 	log.Fatal(http.ListenAndServe(addr, nil))
 }
 
