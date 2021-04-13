@@ -470,12 +470,32 @@ func insliceint(s []int, v int) bool {
 
 // RequestHander for http server
 func RequestHandler(w http.ResponseWriter, r *http.Request) {
-	data, err := json.Marshal(metrics)
-	if err == nil {
-		w.Write(data)
-		return
+	if r.Header.Get("Content-Type") == "application/json" {
+		data, err := json.Marshal(metrics)
+		if err == nil {
+			w.Write(data)
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
 	}
-	w.WriteHeader(http.StatusInternalServerError)
+	var out string
+	prefix := "rucio_tracer"
+
+	// received messages
+	out += fmt.Sprintf("# HELP %s_received messages\n", prefix)
+	out += fmt.Sprintf("# TYPE %s_received counter\n", prefix)
+	out += fmt.Sprintf("%s_received %v\n", prefix, metrics.Received)
+
+	// send messages
+	out += fmt.Sprintf("# HELP %s_send messages\n", prefix)
+	out += fmt.Sprintf("# TYPE %s_send counter\n", prefix)
+	out += fmt.Sprintf("%s_send %v\n", prefix, metrics.Send)
+
+	// traces messages
+	out += fmt.Sprintf("# HELP %s_traces messages\n", prefix)
+	out += fmt.Sprintf("# TYPE %s_traces counter\n", prefix)
+	out += fmt.Sprintf("%s_traces %v\n", prefix, metrics.Traces)
+	w.Write([]byte(out))
 }
 
 // httpServer complementary http server to serve the metrics
