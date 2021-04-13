@@ -110,15 +110,15 @@ type Lfnsite struct {
 // prometheus metrics
 var (
 	Received = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "rucio_tracer_received",
+		Name: "rucio_tracer_fwjr_received",
 		Help: "The number of received messages",
 	})
 	Send = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "rucio_tracer_send",
+		Name: "rucio_tracer_fwjr_send",
 		Help: "The number of send messages",
 	})
 	Traces = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "rucio_tracer_traces",
+		Name: "rucio_tracer_fwjr_traces",
 		Help: "The number of traces messages",
 	})
 )
