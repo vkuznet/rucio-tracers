@@ -1,4 +1,4 @@
-module github.com/dmwm/RucioTracers/stompserver
+module github.com/dmwm/rucio-tracers/stompserver
 
 go 1.16
 
