@@ -23,8 +23,10 @@ type Configuration struct {
 	Verbose int `json:"verbose"`
 	// Port  defines http server port number for monitoring metrics.
 	Port int `json:"port"`
+	// StompURLTest defines StompAMQ URI testbed for consumer and Producer.
+	StompURIProducer string `json:"stompURIProducer"`
 	// StompURL defines StompAMQ URI for consumer and Producer.
-	StompURI string `json:"stompURI"`
+	StompURIConsumer string `json:"stompURIConsumer"`
 	// StompLogin defines StompAQM login name.
 	StompLogin string `json:"stompLogin"`
 	// StompPassword defines StompAQM password.
@@ -85,9 +87,9 @@ func parseConfig(configFile string) error {
 
 //
 // initStomp is a function to initialize a stomp object of endpointProducer.
-func initStomp(endpoint string) *lbstomp.StompManager {
+func initStomp(endpoint string, stompURI string) *lbstomp.StompManager {
 	p := lbstomp.Config{
-		URI:         Config.StompURI,
+		URI:         stompURI,
 		Login:       Config.StompLogin,
 		Password:    Config.StompPassword,
 		Iterations:  Config.StompIterations,
@@ -105,20 +107,20 @@ func initStomp(endpoint string) *lbstomp.StompManager {
 }
 
 // subscribe is a helper function to subscribe to StompAMQ end-point as a listener.
-func subscribe(endpoint string) (*stomp.Subscription, error) {
-	smgr := initStomp(endpoint)
+func subscribe(endpoint string, stompURI string) (*stomp.Subscription, error) {
+	smgr := initStomp(endpoint, stompURI)
 	// get connection
 	conn, addr, err := smgr.GetConnection()
 	if err != nil {
 		return nil, err
 	}
-	log.Println("stomp connection", conn, addr)
+	log.Println("\n stomp connection", conn, addr)
 	// subscribe to ActiveMQ topic
 	sub, err := conn.Subscribe(endpoint, stomp.AckAuto)
 	if err != nil {
 		log.Println("unable to subscribe to", endpoint, err)
 		return nil, err
 	}
-	log.Println("stomp subscription", sub)
+	log.Println("\n stomp subscription", sub)
 	return sub, err
 }
