@@ -17,13 +17,13 @@ import (
 	"time"
 
 	// load-balanced stomp manager
-	lbstomp "github.com/vkuznet/lb-stomp"
+
 	// stomp library
 	"github.com/go-stomp/stomp"
 )
 
-// sitemap  defines maps between the names from the data message and the name Ruci server has.
-var sitemap map[string]string
+// Sitemap  defines maps between the names from the data message and the name Ruci server has.
+var Sitemap map[string]string
 
 // Lfnsite for the map of lfn and site
 type Lfnsite struct {
@@ -64,7 +64,7 @@ type FWJRRecord struct {
 }
 
 // stompMgr defines the stomp manager for the producer.
-var stompMgr *lbstomp.StompManager
+//var stompMgr *lbstomp.StompManager
 
 // FWJRconsumer Consumes for FWJR/WMArchive topic
 func FWJRconsumer(msg *stomp.Message) ([]Lfnsite, int64, string, string, error) {
@@ -83,7 +83,7 @@ func FWJRconsumer(msg *stomp.Message) ([]Lfnsite, int64, string, string, error) 
 	//
 	if Config.Verbose > 2 {
 		log.Println("*****************Source AMQ message of wmarchive*********************")
-		log.Println("Source AMQ message of wmarchive: ", string(msg.Body))
+		log.Println("\n", string(msg.Body))
 		log.Println("*******************End AMQ message of wmarchive**********************")
 	}
 
@@ -94,7 +94,9 @@ func FWJRconsumer(msg *stomp.Message) ([]Lfnsite, int64, string, string, error) 
 		return lfnsite, 0, "", "", err
 	}
 	if Config.Verbose > 2 {
-		log.Printf("******PARSED FWJR record******: %+v", rec)
+		log.Println("******Parsed FWJR record****** ")
+		log.Printf("\n %v", rec)
+		log.Println(" ")
 	}
 	// process received message, e.g. extract some fields
 	var ts int64
@@ -156,11 +158,11 @@ func FWJRtrace(msg *stomp.Message) ([]string, error) {
 		goodlfn := ls.lfn
 		site := ls.site
 		if len(goodlfn) > 0 && len(site) > 0 {
-			if s, ok := sitemap[site]; ok {
+			if s, ok := Sitemap[site]; ok {
 				site = s
 			}
 			for _, glfn := range goodlfn {
-				trc := NewTrace(glfn, site, ts, jobtype, wnname)
+				trc := NewTrace(glfn, site, ts, jobtype, wnname, "fwjr", "unknown")
 				data, err := json.Marshal(trc)
 				if err != nil {
 					if Config.Verbose > 0 {
@@ -173,7 +175,7 @@ func FWJRtrace(msg *stomp.Message) ([]string, error) {
 				}
 				if Config.Verbose > 2 {
 					log.Println("********* Rucio trace record ***************")
-					log.Println("Rucio trace record: ", string(data))
+					log.Println("\n", string(data))
 					log.Println("******** Done Rucio trace record *************")
 				}
 				// send data to Stomp endpoint
@@ -197,24 +199,28 @@ func FWJRtrace(msg *stomp.Message) ([]string, error) {
 
 // server gets messages from consumer AMQ end pointer, make tracers and send to AMQ producer end point.
 func fwjrServer() {
-	log.Println("Stomp broker URL: ", Config.StompURI)
+	log.Println("Stomp broker URL: ", Config.StompURIConsumer)
 	// get connection
-	sub, err := subscribe(Config.EndpointConsumer)
+	sub, err := subscribe(Config.EndpointConsumer, Config.StompURIConsumer)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 
-	stompMgr = initStomp(Config.EndpointProducer)
+	err2 := parseSitemap(fsitemap)
+	if err2 != nil {
+		log.Fatalf("Unable to parse rucio sitemap file %s, error: %v", fsitemap, err2)
+	}
 
 	var tc uint64
 	t1 := time.Now().Unix()
 	var t2 int64
+	var ts uint64
 
 	for {
 		// check first if subscription is still valid, otherwise get a new one
 		if sub == nil {
 			time.Sleep(time.Duration(Config.Interval) * time.Second)
-			sub, err = subscribe(Config.EndpointConsumer)
+			sub, err = subscribe(Config.EndpointConsumer, Config.StompURIConsumer)
 			if err != nil {
 				log.Println("unable to get new subscription", err)
 				continue
@@ -225,7 +231,7 @@ func fwjrServer() {
 		case msg := <-sub.C:
 			if msg.Err != nil {
 				log.Println("receive error message", msg.Err)
-				sub, err = subscribe(Config.EndpointConsumer)
+				sub, err = subscribe(Config.EndpointConsumer, Config.StompURIConsumer)
 				if err != nil {
 					log.Println("unable to subscribe to", Config.EndpointConsumer, err)
 				}
@@ -259,10 +265,14 @@ func fwjrServer() {
 			}
 		default:
 			sleep := time.Duration(Config.Interval) * time.Millisecond
-			if Config.Verbose > 3 {
-				log.Println("waiting for ", sleep)
+			if atomic.LoadUint64(&ts) == 10000 {
+				atomic.StoreUint64(&ts, 0)
+				if Config.Verbose > 3 {
+					log.Println("waiting for x10000", sleep)
+				}
 			}
 			time.Sleep(sleep)
+			atomic.AddUint64(&ts, 1)
 		}
 	}
 }

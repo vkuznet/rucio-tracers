@@ -40,12 +40,18 @@ type Trace struct {
 }
 
 // NewTrace creates a new instance of Rucio Trace.
-func NewTrace(lfn string, site string, ts int64, jobtype string, wnname string) Trace {
+func NewTrace(lfn string, site string, ts int64, jobtype string, wnname string, account string, usrdn string) Trace {
+	if account == "" {
+		account = "fwjr"
+	}
+	if usrdn == "" {
+		usrdn = "unknown"
+	}
 	trc := Trace{
-		Account:            "fwjr",
+		Account:            account,
 		ClientState:        "DONE",
 		Filename:           lfn,
-		DID:                fmt.Sprintf("cms: %s", lfn),
+		DID:                fmt.Sprintf("cms:%s", lfn),
 		EventType:          "get",
 		EventVersion:       "API_1.21.6",
 		FileReadts:         ts,
@@ -53,7 +59,8 @@ func NewTrace(lfn string, site string, ts int64, jobtype string, wnname string) 
 		Scope:              "cms",
 		Timestamp:          ts,
 		TraceTimeentryUnix: ts,
-		Usrdn:              "/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=fwjr/CN=0/CN=fwjr/CN=0",
+		Usrdn:              usrdn,
+		Jobtype:            jobtype,
 		Wnname:             wnname,
 	}
 	return trc
