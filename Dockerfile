@@ -17,7 +17,7 @@ ENV GOPATH=/data/gopath
 ARG CGO_ENABLED=0
 # build Rucio tracer
 WORKDIR ${WDIR} 
-RUN git clone https://github.com/dmwm/RucioTracers.git
+RUN git clone https://github.com/dmwm/rucio-tracers.git RucioTracers
 WORKDIR ${WDIR}/RucioTracers/stompserver
 RUN make
 FROM alpine
@@ -25,4 +25,6 @@ FROM alpine
 COPY --from=go-builder /data/RucioTracers/stompserver/RucioTracer /data/
 RUN mkdir -p /data/run && mkdir -p /data/etc
 COPY --from=go-builder /data/RucioTracers/run.sh /data/run/
+COPY --from=go-builder /data/RucioTracers/run-swpop.sh /data/run/
 COPY --from=go-builder /data/RucioTracers/etc/ruciositemap.json /data/etc/
+COPY --from=go-builder /data/RucioTracers/etc/domainsitemap.txt /data/etc/

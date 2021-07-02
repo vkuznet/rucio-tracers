@@ -5,6 +5,4 @@ ls
 ls /etc/secrets
 ls -l /data/RucioTracer
 /data/RucioTracer -help
-/data/RucioTracer -config /etc/secrets/stompserverconfig.json -sitemap /data/etc/ruciositemap.json &
-sleep 864000
-killall RucioTracer
+/data/RucioTracer -config /etc/secrets/stompserverconfig4fwjr.json -sitemap /data/etc/ruciositemap.json &
