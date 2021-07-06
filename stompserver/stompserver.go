@@ -66,16 +66,20 @@ func httpServer(addr string) {
 // fsitemap map file
 var fsitemap string
 
+// fdomainmap Domain RSEs map file
+var fdomainmap string
+
 //
 func main() {
-	// usage: ./RucioTracer -config stompserverconfig.json -sitemap ../etc/ruciositemap.json
+	// usage: ./RucioTracer -config stompserverconfig.json -sitemap ../etc/ruciositemap.json -domainmap /etc/domainsitemap.txt
 
 	// use this line to print in logs the filene:lineNumber for each log entry
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	var config string
 	//var fsitemap string
 	flag.StringVar(&config, "config", "", "config file name")
-	flag.StringVar(&fsitemap, "sitemap", "", "runcio sitemap/domainRSEMap file")
+	flag.StringVar(&fsitemap, "sitemap", "", "runcio sitemap file")
+	flag.StringVar(&fdomainmap, "domainmap", "", "runcio domainRSEMap file")
 	flag.Parse()
 	err2 := parseConfig(config)
 	if err2 != nil {
@@ -84,6 +88,7 @@ func main() {
 	if Config.Verbose > 3 {
 		log.Printf("%v", Config)
 		log.Printf("%v", fsitemap)
+		log.Printf("%v", fdomainmap)
 	}
 	stompMgr = initStomp(Config.EndpointProducer, Config.StompURIProducer)
 	// start HTTP server which can be used for metrics

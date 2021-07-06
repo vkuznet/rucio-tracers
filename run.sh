@@ -5,4 +5,4 @@ ls
 ls /etc/secrets
 ls -l /data/RucioTracer
 /data/RucioTracer -help
-/data/RucioTracer -config /etc/secrets/stompserverconfig4fwjr.json -sitemap /data/etc/ruciositemap.json
+/data/RucioTracer -config /etc/secrets/stompserverconfig4fwjr.json -sitemap /data/etc/ruciositemap.json /data/etc/domainsitemap.txt

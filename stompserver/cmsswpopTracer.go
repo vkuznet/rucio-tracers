@@ -36,12 +36,6 @@ type SWPOPRecord struct {
 	Ts           int64  `json:"start_time"`
 }
 
-// DomainRSE: Define the struct of Domain and RSE map.
-type DomainRSE struct {
-	Domain string
-	RSEs   []string
-}
-
 // Define the domain and RSE map file
 var domainRSEMap []DomainRSE
 
@@ -83,6 +77,7 @@ func swpopConsumer(msg *stomp.Message) (string, []string, string, string, int64,
 	var ts int64
 	var jobtype string
 	var wnname string
+	var site string
 	// Check the data
 	if len(rec.Lfn) > 0 {
 		lfn = rec.Lfn
@@ -93,7 +88,12 @@ func swpopConsumer(msg *stomp.Message) (string, []string, string, string, int64,
 		if len(rec.SiteName) == 0 {
 			return "", nil, "", "", 0, "", errors.New("No RSEs found")
 		} else {
-			sitename = append(sitename, rec.SiteName)
+			if s, ok := Sitemap[rec.SiteName]; ok {
+				site = s
+			} else {
+				site = rec.SiteName
+			}
+			sitename = append(sitename, site)
 		}
 	} else {
 		sitename = findRSEs(rec.ServerDomain)
@@ -184,15 +184,21 @@ func swpopServer() {
 		log.Println(err)
 	}
 	//
-	err2 := parseRSEMap(fsitemap)
+	err2 := parseRSEMap(fdomainmap)
 	if err2 != nil {
-		log.Fatalln("Unable to parse rucio doamin RSE map file %s, error: %v", fsitemap, err2)
+		log.Fatalf("Unable to parse rucio doamin RSE map file %s, error: %v \n", fdomainmap, err2)
+	}
+
+	err2 = parseSitemap(fsitemap)
+	if err2 != nil {
+		log.Fatalf("Unable to parse rucio sitemap file %s, error: %v \n", fsitemap, err2)
 	}
 
 	var tc uint64
 	t1 := time.Now().Unix()
 	var t2 int64
 	var ts uint64
+	var restartSrv uint
 
 	for {
 		// check first if subscription is still valid, otherwise get a new one
@@ -207,6 +213,7 @@ func swpopServer() {
 		// get stomp messages from subscriber channel
 		select {
 		case msg := <-sub.C:
+			restartSrv = 0
 			if msg.Err != nil {
 				log.Println("receive error message", msg.Err)
 				sub, err = subscribe(Config.EndpointConsumer, Config.StompURIConsumer)
@@ -243,6 +250,12 @@ func swpopServer() {
 			}
 		default:
 			sleep := time.Duration(Config.Interval) * time.Millisecond
+			// Config.Interval = 1 so each sleeping is 10 ms. We will have to restart the server
+			// if it cannot get any messages in 5 minutes.
+			if restartSrv >= 300000 {
+				log.Fatalln("No messages in 5 minutes, exit(1)")
+			}
+			restartSrv += 1
 			if atomic.LoadUint64(&ts) == 10000 {
 				atomic.StoreUint64(&ts, 0)
 				if Config.Verbose > 3 {
