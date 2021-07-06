@@ -22,9 +22,6 @@ import (
 	"github.com/go-stomp/stomp"
 )
 
-// Sitemap  defines maps between the names from the data message and the name Ruci server has.
-var Sitemap map[string]string
-
 // Lfnsite for the map of lfn and site
 type Lfnsite struct {
 	site string
@@ -215,6 +212,7 @@ func fwjrServer() {
 	t1 := time.Now().Unix()
 	var t2 int64
 	var ts uint64
+	var restartSrv uint
 
 	for {
 		// check first if subscription is still valid, otherwise get a new one
@@ -229,6 +227,7 @@ func fwjrServer() {
 		// get stomp messages from subscriber channel
 		select {
 		case msg := <-sub.C:
+			restartSrv = 0
 			if msg.Err != nil {
 				log.Println("receive error message", msg.Err)
 				sub, err = subscribe(Config.EndpointConsumer, Config.StompURIConsumer)
@@ -265,6 +264,10 @@ func fwjrServer() {
 			}
 		default:
 			sleep := time.Duration(Config.Interval) * time.Millisecond
+			if restartSrv >= 300000 {
+				log.Fatalln("No messages in 5 minutes, exit(1)")
+			}
+			restartSrv += 1
 			if atomic.LoadUint64(&ts) == 10000 {
 				atomic.StoreUint64(&ts, 0)
 				if Config.Verbose > 3 {

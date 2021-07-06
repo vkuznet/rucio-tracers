@@ -11,6 +11,17 @@ import (
 	"strings"
 )
 
+//
+// Sitemap  defines maps between the RSE names from the data message and the name Ruci server has.
+var Sitemap map[string]string
+
+// DomainRSE: Define the struct of Domain and RSE map.
+type DomainRSE struct {
+	Domain string
+	RSEs   []string
+}
+
+//
 func inslicestr(s []string, v string) bool {
 	for i := range s {
 		if v == s[i] {
