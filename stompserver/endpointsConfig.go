@@ -103,6 +103,7 @@ func initStomp(endpoint string, stompURI string) *lbstomp.StompManager {
 	}
 	stompManger := lbstomp.New(p)
 	log.Println(stompManger.String())
+	log.Println(stompManger.Addresses)
 	return stompManger
 }
 
