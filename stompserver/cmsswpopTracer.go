@@ -17,10 +17,27 @@ import (
 	"sync/atomic"
 	"time"
 
-	// load-balanced stomp manager
-
 	// stomp library
 	"github.com/go-stomp/stomp"
+	// prometheus apis
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+)
+
+// prometheus metrics
+var (
+	Received_swpop = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "rucio_tracer_swpop_received",
+		Help: "The number of received messages of swpop",
+	})
+	Send_swpop = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "rucio_tracer_swpop_send",
+		Help: "The number of send messages od swpop",
+	})
+	Traces_swpop = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "rucio_tracer_swpop_traces",
+		Help: "The number of traces messages os swpop",
+	})
 )
 
 // SWPOPRecord defines CMSSW POP record structure.

@@ -17,41 +17,8 @@ import (
 
 	// load-balanced stomp manager
 	lbstomp "github.com/vkuznet/lb-stomp"
-	// stomp library
-
 	// prometheus apis
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-)
-
-// prometheus metrics
-var (
-	Received = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "rucio_tracer_fwjr_received",
-		Help: "The number of received messages",
-	})
-	Send = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "rucio_tracer_fwjr_send",
-		Help: "The number of send messages",
-	})
-	Traces = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "rucio_tracer_fwjr_traces",
-		Help: "The number of traces messages",
-	})
-
-	Received_swpop = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "rucio_tracer_swpop_received",
-		Help: "The number of received messages of swpop",
-	})
-	Send_swpop = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "rucio_tracer_swpop_send",
-		Help: "The number of send messages od swpop",
-	})
-	Traces_swpop = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "rucio_tracer_swpop_traces",
-		Help: "The number of traces messages os swpop",
-	})
 )
 
 // stompMgr defines the stomp manager for the producer.
@@ -71,7 +38,7 @@ var fdomainmap string
 
 //
 func main() {
-	// usage: ./RucioTracer -config stompserverconfig.json -sitemap ../etc/ruciositemap.json -domainmap /etc/domainsitemap.txt
+	// usage: ./RucioTracer -config stompserverconfig.json -sitemap ../etc/ruciositemap.json -domainmap ../etc/domainsitemap.txt
 
 	// use this line to print in logs the filene:lineNumber for each log entry
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
@@ -98,6 +65,8 @@ func main() {
 		fwjrServer()
 	} else if Config.Producer == "cmsswpop" {
 		swpopServer()
+	} else if Config.Producer == "xrootd" {
+		xrtdServer()
 	} else {
 		log.Fatalln("No trace system defined. Check server configuration.")
 	}
