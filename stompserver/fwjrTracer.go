@@ -215,7 +215,8 @@ func FWJRtrace(msg *stomp.Message) ([]string, error) {
 func fwjrServer() {
 	log.Println("Stomp broker URL: ", Config.StompURIConsumer)
 	// get connection
-	sub, err := subscribe(Config.EndpointConsumer, Config.StompURIConsumer)
+	smgr := initStomp(Config.EndpointConsumer, Config.StompURIConsumer)
+	sub, err := subscribe(smgr)
 	if err != nil {
 		log.Println(err)
 	}
@@ -235,7 +236,7 @@ func fwjrServer() {
 		// check first if subscription is still valid, otherwise get a new one
 		if sub == nil {
 			time.Sleep(time.Duration(Config.Interval) * time.Second)
-			sub, err = subscribe(Config.EndpointConsumer, Config.StompURIConsumer)
+			sub, err = subscribe(smgr)
 			if err != nil {
 				log.Println("unable to get new subscription", err)
 				continue
@@ -247,7 +248,7 @@ func fwjrServer() {
 			restartSrv = 0
 			if msg.Err != nil {
 				log.Println("receive error message", msg.Err)
-				sub, err = subscribe(Config.EndpointConsumer, Config.StompURIConsumer)
+				sub, err = subscribe(smgr)
 				if err != nil {
 					log.Println("unable to subscribe to", Config.EndpointConsumer, err)
 				}

@@ -195,11 +195,6 @@ func swpopTrace(msg *stomp.Message) ([]string, error) {
 // server gets messages from consumer AMQ end pointer, make tracers and send to AMQ producer end point.
 func swpopServer() {
 	log.Println("Stomp broker URL: ", Config.StompURIConsumer)
-	// get connection
-	sub, err := subscribe(Config.EndpointConsumer, Config.StompURIConsumer)
-	if err != nil {
-		log.Println(err)
-	}
 	//
 	err2 := parseRSEMap(fdomainmap)
 	if err2 != nil {
@@ -216,12 +211,21 @@ func swpopServer() {
 	var t2 int64
 	var ts uint64
 	var restartSrv uint
+	smgr := initStomp(Config.EndpointConsumer, Config.StompURIConsumer)
+	// get connection
+	sub, err := subscribe(smgr)
+	if err != nil {
+		log.Println(err)
+		sub, err = subscribe(smgr)
+		if err != nil {
+			log.Fatalf("Unable to subscribe to all the brokers, fatal error!")
+		}
+	}
 
 	for {
 		// check first if subscription is still valid, otherwise get a new one
 		if sub == nil {
 			time.Sleep(time.Duration(Config.Interval) * time.Second)
-			sub, err = subscribe(Config.EndpointConsumer, Config.StompURIConsumer)
 			if err != nil {
 				log.Println("unable to get new subscription", err)
 				continue
@@ -233,7 +237,7 @@ func swpopServer() {
 			restartSrv = 0
 			if msg.Err != nil {
 				log.Println("receive error message", msg.Err)
-				sub, err = subscribe(Config.EndpointConsumer, Config.StompURIConsumer)
+				sub, err = subscribe(smgr)
 				if err != nil {
 					log.Println("unable to subscribe to", Config.EndpointConsumer, err)
 				}
