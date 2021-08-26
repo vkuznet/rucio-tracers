@@ -19,6 +19,7 @@ import (
 
 	// stomp library
 	"github.com/go-stomp/stomp"
+
 	// prometheus apis
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -60,7 +61,7 @@ var domainRSEMap2 []DomainRSE
 // Receivedperk keeps number of messages per 1k
 var Receivedperk_xrtd uint64
 
-// xrtdConsumer consumes for aaa/xrtood pop topic
+// xrtdConsumer consumes for aaa/xrtood topic
 func xrtdConsumer(msg *stomp.Message) (string, []string, string, string, int64, string, error) {
 	//first to check to make sure there is something in msg,
 	//otherwise we will get error.
@@ -202,59 +203,51 @@ func xrtdTrace(msg *stomp.Message) ([]string, error) {
 	return dids, nil
 }
 
+//
 // xrtdServer gets messages from consumer AMQ end pointer, make tracers and send to AMQ producer end point.
 func xrtdServer() {
-	log.Println("Stomp broker URL: ", Config.StompURIConsumer)
-	// get connection
-	/*
-		sub, err := subscribe(Config.EndpointConsumer, Config.StompURIConsumer)
-		if err != nil {
-			log.Println(err)
-		}
-	*/
+	log.Println("Consumer Stomp broker URL: ", Config.StompURIConsumer)
 	//
 	err2 := parseRSEMap(fdomainmap)
 	if err2 != nil {
 		log.Fatalf("Unable to parse rucio doamin RSE map file %s, error: %v \n", fdomainmap, err2)
 	}
-
+	//
 	err2 = parseSitemap(fsitemap)
 	if err2 != nil {
 		log.Fatalf("Unable to parse rucio sitemap file %s, error: %v \n", fsitemap, err2)
 	}
-
+	//
 	var tc uint64
 	t1 := time.Now().Unix()
 	var t2 int64
 	var ts uint64
 	var restartSrv uint
-
-	for {
-		// get connection
-		sub, err := subscribe(Config.EndpointConsumer, Config.StompURIConsumer)
+	smgr := initStomp(Config.EndpointConsumer, Config.StompURIConsumer)
+	// get subscriptions
+	subs, err := subscribeAll(smgr)
+	if err != nil {
+		log.Println(err)
+		subs, err = subscribeAll(smgr)
 		if err != nil {
-			log.Println(err)
+			log.Fatalf("Unable to subscribe to all the brokers, fatal error!")
 		}
-		// check first if subscription is still valid, otherwise get a new one
-		// We need to connect to the sub
-		if sub == nil {
-			time.Sleep(time.Duration(Config.Interval) * time.Second)
-			sub, err = subscribe(Config.EndpointConsumer, Config.StompURIConsumer)
-			if err != nil {
-				log.Println("unable to get new subscription", err)
-				continue
-			}
-		}
-		// get stomp messages from subscriber channel
+	}
+	// ch for all the listeners to write to
+	ch := make(chan *stomp.Message)
+	// defer close executed when the main function is about to exit.
+	// In this way the channel is to be closed and no resources taken.
+	defer close(ch)
+	for i, sub := range subs {
+		go listener(smgr, sub, ch, i)
+
+	}
+	for {
+		// get stomp messages from ch
 		select {
-		case msg := <-sub.C:
+		case msg := <-ch:
 			restartSrv = 0
 			if msg.Err != nil {
-				log.Println("receive error message", msg.Err)
-				sub, err = subscribe(Config.EndpointConsumer, Config.StompURIConsumer)
-				if err != nil {
-					log.Println("unable to subscribe to", Config.EndpointConsumer, err)
-				}
 				break
 			}
 			// process stomp messages
@@ -286,6 +279,7 @@ func xrtdServer() {
 			// Config.Interval = 1 so each sleeping is 10 ms. We will have to restart the server
 			// if it cannot get any messages in 5 minutes.
 			if restartSrv >= 300000 {
+				//FIXME: We may not exit anymore.
 				log.Fatalln("No messages in 5 minutes, exit(1)")
 			}
 			restartSrv += 1

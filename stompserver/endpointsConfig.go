@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"log"
+	"time"
 
 	"github.com/go-stomp/stomp"
 	lbstomp "github.com/vkuznet/lb-stomp"
@@ -108,8 +109,7 @@ func initStomp(endpoint string, stompURI string) *lbstomp.StompManager {
 }
 
 // subscribe is a helper function to subscribe to StompAMQ end-point as a listener.
-func subscribe(endpoint string, stompURI string) (*stomp.Subscription, error) {
-	smgr := initStomp(endpoint, stompURI)
+func subscribe(smgr *lbstomp.StompManager) (*stomp.Subscription, error) {
 	// get connection
 	conn, addr, err := smgr.GetConnection()
 	if err != nil {
@@ -117,11 +117,70 @@ func subscribe(endpoint string, stompURI string) (*stomp.Subscription, error) {
 	}
 	log.Println("\n stomp connection", conn, addr)
 	// subscribe to ActiveMQ topic
-	sub, err := conn.Subscribe(endpoint, stomp.AckAuto)
+	sub, err := conn.Subscribe(smgr.Config.Endpoint, stomp.AckAuto)
 	if err != nil {
-		log.Println("unable to subscribe to", endpoint, err)
+		log.Println("unable to subscribe to", smgr.Config.Endpoint, err)
 		return nil, err
 	}
 	log.Println("\n stomp subscription", sub)
 	return sub, err
+}
+
+// subscribeAll is a helper function to subscribe to all StompAMQ brokers
+func subscribeAll(smgr *lbstomp.StompManager) ([]*stomp.Subscription, error) {
+	var subscriptions []*stomp.Subscription
+	for idx, addr := range smgr.Addresses {
+		conn := smgr.ConnectionPool[idx]
+		log.Println("stomp connection", conn, addr)
+		// subscribe to ActiveMQ topic
+		sub, err := conn.Subscribe(smgr.Config.Endpoint, stomp.AckAuto)
+		if err != nil {
+			log.Println("unable to subscribe to: ", smgr.Config.Endpoint, ". Error message: n", err)
+			return subscriptions, err
+		}
+		subscriptions = append(subscriptions, sub)
+	}
+	log.Println("stomp subscriptions", subscriptions)
+	return subscriptions, nil
+}
+
+//
+// listener is a function to get data from a subsciption and pass the data to a chan
+func listener(smgr *lbstomp.StompManager, sub *stomp.Subscription, ch chan<- *stomp.Message, cpool int) {
+	// get stomp messages from the subscriber channel
+	sleep := time.Duration(Config.Interval) * time.Millisecond
+	var err error
+	for {
+		select {
+		case msg := <-sub.C:
+			if Config.Verbose > 2 {
+				log.Printf("********* conn pool # %d ************", cpool)
+			}
+			if msg.Err != nil {
+				log.Println("receive error message: ", msg.Err)
+				// subscription checking
+				if !sub.Active() {
+					// we have to connect back to the same connection/broker with cpool
+					conn := smgr.ConnectionPool[cpool]
+					log.Println("stomp connection: ", conn)
+					sub, err = conn.Subscribe(smgr.Config.Endpoint, stomp.AckAuto)
+					if err != nil {
+						log.Println("unable to subscribe to: ", Config.EndpointConsumer, ". Error message: ", err)
+						// wait
+						time.Sleep(sleep)
+						conn := smgr.ConnectionPool[cpool]
+						log.Println("stomp reconnected: ", conn)
+						// subscribe to ActiveMQ topic
+						sub, err = conn.Subscribe(smgr.Config.Endpoint, stomp.AckAuto)
+						// FIXME: IF there is error again, what we should do? YG aug25, 2021
+						break
+					}
+				}
+			} else {
+				ch <- msg
+			}
+		default:
+			time.Sleep(sleep)
+		}
+	}
 }
