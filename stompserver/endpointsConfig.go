@@ -159,20 +159,49 @@ func listener(smgr *lbstomp.StompManager, sub *stomp.Subscription, ch chan<- *st
 			if msg.Err != nil {
 				log.Println("receive error message: ", msg.Err)
 				// subscription checking
-				if !sub.Active() {
-					// we have to connect back to the same connection/broker with cpool
+				if sub != nil {
+					if !sub.Active() {
+						// we have to connect back to the same connection/broker with cpool
+						conn := smgr.ConnectionPool[cpool]
+						log.Println("stomp connection: ", conn)
+						sub, err = conn.Subscribe(smgr.Config.Endpoint, stomp.AckAuto)
+						if err != nil {
+							log.Println("unable to subscribe to: ", Config.EndpointConsumer, ". Error message: ", err)
+							break
+							// wait
+							//time.Sleep(sleep)
+							// conn := smgr.ConnectionPool[cpool]
+							//log.Println("stomp reconnected: ", conn)
+							// subscribe to ActiveMQ topic
+							//sub, err = conn.Subscribe(smgr.Config.Endpoint, stomp.AckAuto)
+							// FIXME: listener is goroutin, exit(1) exit this gorountin ? all the entire server?
+							//if err != nil {
+							//log.Println("unable to subscribe to: ", Config.EndpointConsumer, ". Error message: ", err)
+							//break
+							//log.Fatalf("Cann't subscribe to connect %d of %s, exit(1).\n ", cpool, smgr.Config.Endpoint)
+							//}
+							//break
+						}
+					} else {
+						time.Sleep(sleep)
+					}
+				} else {
 					conn := smgr.ConnectionPool[cpool]
-					log.Println("stomp connection: ", conn)
 					sub, err = conn.Subscribe(smgr.Config.Endpoint, stomp.AckAuto)
 					if err != nil {
 						log.Println("unable to subscribe to: ", Config.EndpointConsumer, ". Error message: ", err)
 						// wait
 						time.Sleep(sleep)
-						conn := smgr.ConnectionPool[cpool]
-						log.Println("stomp reconnected: ", conn)
+						//conn := smgr.ConnectionPool[cpool]
+						//log.Println("stomp reconnected: ", conn)
 						// subscribe to ActiveMQ topic
 						sub, err = conn.Subscribe(smgr.Config.Endpoint, stomp.AckAuto)
-						// FIXME: IF there is error again, what we should do? YG aug25, 2021
+						// FIXME: listener is goroutin, exit(1) exit this gorountin ? or the entire server?
+						if err != nil {
+							log.Println("unable to subscribe to: ", Config.EndpointConsumer, ". Error message: ", err)
+							break
+							//log.Fatalf("Cann't subscribe to connect %d of %s, exit(1). \n", cpool, smgr.Config.Endpoint)
+						}
 						break
 					}
 				}
