@@ -230,7 +230,7 @@ func xrtdServer() {
 		log.Println(err)
 		subs, err = subscribeAll(smgr)
 		if err != nil {
-			log.Fatalf("Unable to subscribe to all the brokers, fatal error!")
+			log.Fatalf("Unable to subscribe to all the brokers, fatal error!\n")
 		}
 	}
 	// ch for all the listeners to write to
