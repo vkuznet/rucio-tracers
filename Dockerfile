@@ -20,7 +20,7 @@ WORKDIR ${WDIR}
 RUN git clone https://github.com/dmwm/rucio-tracers.git RucioTracers
 WORKDIR ${WDIR}/RucioTracers/stompserver
 RUN make
-FROM alpine
+FROM alpine:3.15
 # when COPY, need full path, ${WDIR}/RucioTracers/stompserver/RucioTracer will nor wor, WHY?
 COPY --from=go-builder /data/RucioTracers/stompserver/RucioTracer /data/
 RUN mkdir -p /data/run && mkdir -p /data/etc
